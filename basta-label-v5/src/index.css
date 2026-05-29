@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@200;300;400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* ============================================
+     BASTA LABEL — Official Color Palette
+     ============================================ */
+  --color-milk:       #FBF7F4;   /* Texts highlight, CTA buttons */
+  --color-oat:        #E5DED2;   /* Primary text on dark bg */
+  --color-taupe:      #A39382;   /* Accents, labels, secondary */
+  --color-mocha:      #685D54;   /* PRIMARY BACKGROUND */
+  --color-mocha-dark: #574e46;   /* Hover states, sections */
+  --color-mocha-deep: #4a4139;   /* Deeper sections */
+  --color-charcoal:   #232323;   /* Footer, dark sections */
+
+  /* Typography */
+  --font-display: "Barlow Condensed", "Impact", sans-serif;
+  --font-serif:   "Playfair Display", Georgia, serif;
+  --font-sans:    "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ---- LOGO CLASSES ---- */
+.logo-basta {
+  font-family: "Barlow Condensed", "Impact", sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.logo-label {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: 0.42em;
+  font-size: 0.48rem;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* ---- FILM GRAIN OVERLAY ---- */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9000;
+  opacity: 0.6;
+  mix-blend-mode: multiply;
+}
+
+/* ---- TICKER ANIMATION ---- */
+@keyframes infinite-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-infinite-scroll {
+  animation: infinite-scroll 34s linear infinite;
+}
+.animate-infinite-scroll:hover {
+  animation-play-state: paused;
+}
+
+/* ---- CUSTOM SCROLLBAR ---- */
+::-webkit-scrollbar       { width: 5px; }
+::-webkit-scrollbar-track  { background: #685D54; }
+::-webkit-scrollbar-thumb  { background: #A39382; }
+::-webkit-scrollbar-thumb:hover { background: #E5DED2; }
+
+/* ---- CURSOR ---- */
+@media (min-width: 901px) {
+  .custom-cursor-enabled { cursor: none; }
+}
