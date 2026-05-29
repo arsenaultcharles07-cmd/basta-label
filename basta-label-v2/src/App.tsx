@@ -1,0 +1,1201 @@
+import React, { useState, useEffect, useRef } from "react";
+import { 
+  ShoppingBag, 
+  ArrowRight, 
+  ChevronRight, 
+  Ruler, 
+  ShieldCheck, 
+  Sparkles, 
+  Maximize2, 
+  Info,
+  CheckCircle,
+  X
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+
+import { Product, CartItem } from "./types";
+import { PRODUCTS, FAQS, SOCIALS, BRAND_VALUES } from "./data";
+
+// Sub Components
+import CustomCursor from "./components/CustomCursor";
+import Navbar from "./components/Navbar";
+import CartDrawer from "./components/CartDrawer";
+import StickyAddToCart from "./components/StickyAddToCart";
+import SizeGuideModal from "./components/SizeGuideModal";
+
+export default function App() {
+  // --- STATES & REFS ---
+  const [cartOpen, setCartOpen] = useState(false);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  
+  // Active product on detail section (defaults to signature Navy Trouser)
+  const [selectedProduct, setSelectedProduct] = useState<Product>(PRODUCTS[0]);
+  const [selectedSize, setSelectedSize] = useState<string>("M");
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+
+  // Accordion toggle status on product description
+  const [activeAccordion, setActiveAccordion] = useState<string | null>("comp");
+
+  // FAQ accordion tracking (pre-open first FAQ)
+  const [openFaqId, setOpenFaqId] = useState<string | null>("faq-size");
+
+  // Newsletter Success state
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+
+  // Lookbook Modal state
+  const [lookbookOpen, setLookbookOpen] = useState(false);
+  const [lookbookIndex, setLookbookIndex] = useState(0);
+
+  const detailSectionRef = useRef<HTMLDivElement>(null);
+
+  // --- LOCAL STORAGE CART PERSISTENCE ---
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("basta-cart-v1");
+      if (stored) {
+        setCartItems(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error("Could not load cart items:", e);
+    }
+  }, []);
+
+  const saveCartToStorage = (updated: CartItem[]) => {
+    try {
+      localStorage.setItem("basta-cart-v1", JSON.stringify(updated));
+    } catch (e) {
+      console.error("Could not preserve cart items:", e);
+    }
+  };
+
+  // --- CART OPERATIONS ---
+  const handleAddToBag = (product: Product, size: string) => {
+    // Unique ID combining product code and size
+    const itemId = `${product.id}-${size}`;
+    
+    let updatedCart = [...cartItems];
+    const existingIndex = cartItems.findIndex((it) => it.id === itemId);
+
+    if (existingIndex > -1) {
+      updatedCart[existingIndex].quantity += 1;
+    } else {
+      updatedCart.push({
+        id: itemId,
+        product,
+        selectedSize: size,
+        quantity: 1
+      });
+    }
+
+    setCartItems(updatedCart);
+    saveCartToStorage(updatedCart);
+    setCartOpen(true); // Open drawer instantly for immediate purchase confirmation
+  };
+
+  const handleUpdateQuantity = (id: string, delta: number) => {
+    const updatedCart = cartItems
+      .map((item) => {
+        if (item.id === id) {
+          const newQty = item.quantity + delta;
+          return { ...item, quantity: newQty };
+        }
+        return item;
+      })
+      .filter((item) => item.quantity > 0);
+
+    setCartItems(updatedCart);
+    saveCartToStorage(updatedCart);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    const updatedCart = cartItems.filter((item) => item.id !== id);
+    setCartItems(updatedCart);
+    saveCartToStorage(updatedCart);
+  };
+
+  // --- SCROLL TO ---
+  const handleScrollToSection = (id: string) => {
+    const section = document.getElementById(id);
+    if (section) {
+      const offset = 100;
+      const elementPosition = section.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - offset;
+      
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
+    }
+  };
+
+  const handleProductCardClick = (product: Product) => {
+    setSelectedProduct(product);
+    setSelectedSize("M"); // reset selection to default M
+    if (detailSectionRef.current) {
+      const offset = 120;
+      const elementPosition = detailSectionRef.current.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - offset;
+      
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
+    }
+  };
+
+  // Switch image gallery focus if any secondary image exists
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  useEffect(() => {
+    setActivePhotoIndex(0); // reset when product changes
+  }, [selectedProduct]);
+
+  // Newsletter handler
+  const handleNewsletterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newsletterEmail.trim()) {
+      setNewsletterSubscribed(true);
+      setNewsletterEmail("");
+    }
+  };
+
+  return (
+    <div className="relative min-h-screen bg-[#ede8de] text-[#0d0d0b] font-sans selection:bg-[#0d0d0b]/10 selection:text-[#0d0d0b] overflow-x-hidden pb-12 sm:pb-20">
+      {/* Dynamic Ambient Noise Texture layering overall screen depth */}
+      <div className="grain-overlay" />
+      
+      {/* High-fidelity custom trailing cursor */}
+      <CustomCursor />
+      <div className="bg-[#0b0b0a] text-[#f4f1ea]/80 text-center py-2 px-4 text-[0.62rem] font-sans font-light tracking-[0.25em] uppercase">
+        <span>Drop 01 &mdash; Disponible en tirage restreint. </span>
+        <span className="text-[#f4f1ea] font-normal transition-all hover:text-[#f4f1ea] ml-1">
+          Livraison gratuite au-dessus de $200 CAD &middot; Free worldwide shipping
+        </span>
+      </div>
+      <Navbar 
+        cartCount={cartItems.reduce((acc, item) => acc + item.quantity, 0)}
+        onCartClick={() => setCartOpen(true)}
+        onScrollToSection={handleScrollToSection}
+      />
+
+      {/* ============ ③ HERO SECTION ============ */}
+      <span id="hero-section" />
+      <section className="relative h-[85vh] sm:h-[90vh] min-h-[600px] w-full flex items-end overflow-hidden bg-[#c8c3b5]">
+        {/* Cinematic Widescreen Image Overlay */}
+        <div className="absolute inset-0 z-0">
+          <img
+            src="/images/basta_hero_banner_1779996826682.png"
+            alt="Basta Label Editorial Modeling setting"
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover object-center scale-102 filter brightness-[0.88] transition-transform duration-[4000ms] ease-out hover:scale-105"
+          />
+          {/* Subtle premium shadow vignettes built-in */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d0b]/75 via-[#0d0d0b]/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0d0d0b]/35 via-transparent to-[#0d0d0b]/15" />
+        </div>
+
+        {/* Content Box */}
+        <div className="max-w-7xl mx-auto w-full px-6 sm:px-12 pb-12 sm:pb-20 z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div>
+            <span className="text-[0.62rem] font-sans font-medium tracking-[0.35em] text-[#ede9df]/60 uppercase block mb-3 animate-fadeIn">
+              Capsule 01 &mdash; 2026
+            </span>
+            <h1 className="font-serif text-5xl sm:text-7xl lg:text-8xl font-light text-[#f4f1ea] leading-[0.95] tracking-tight">
+              Basta.<br />
+              <span className="font-serif italic text-[#ede9df]/75 font-normal tracking-wide text-[0.85em] lg:text-[0.82em]">
+                to excess.
+              </span>
+            </h1>
+          </div>
+
+          <div className="flex flex-col items-start md:items-end gap-6 sm:gap-8 md:text-right">
+            <p className="text-[0.68rem] sm:text-xs font-sans font-light tracking-[0.2em] text-[#f4f1ea]/80 leading-relaxed uppercase max-w-sm">
+              Quiet confidence.<br />
+              Deux silhouettes signatures.<br />
+              Zéro compromis.
+            </p>
+            <button
+              onClick={() => handleScrollToSection("collection")}
+              className="group px-8 py-4 bg-[#ede8de] text-[#0d0d0b] text-[0.6rem] sm:text-[0.65rem] font-sans font-light tracking-[0.25em] uppercase hover:bg-[#e4ddd0] active:scale-98 transition-all flex items-center gap-3 shadow-md"
+            >
+              <span>Découvrir la collection</span>
+              <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
+            </button>
+          </div>
+        </div>
+
+        {/* Floating scroll indicator */}
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2">
+          <span className="text-[0.48rem] font-sans uppercase tracking-[0.3em] text-[#ede9df]/55">Scroll</span>
+          <div className="w-[1px] h-10 bg-[#e4ddd0]/20 relative overflow-hidden">
+            <span className="absolute top-0 left-0 w-full h-1/2 bg-[#ede8de] animate-pulse" style={{ animationDuration: '2s' }} />
+          </div>
+        </div>
+      </section>
+      <div className="border-y border-[#c4b9aa]/40 bg-[#ede8de] py-3.5 overflow-hidden">
+        <div className="flex whitespace-nowrap gap-12 w-max animate-infinite-scroll">
+          {/* Looping twice for seamless continuation */}
+          {[1, 2].map((loopIdx) => (
+            <div key={loopIdx} className="flex gap-12 items-center">
+              <span className="text-[0.58rem] font-sans uppercase text-[#8a7b6e] tracking-[0.22em] flex items-center gap-4">
+                Silence is luxury <span className="w-1.5 h-1.5 rounded-full bg-[#c4b9aa] inline-block" />
+              </span>
+              <span className="text-[0.58rem] font-sans uppercase text-[#8a7b6e] tracking-[0.22em] flex items-center gap-4">
+                Capsule 01 Disponible <span className="w-1.5 h-1.5 rounded-full bg-[#c4b9aa] inline-block" />
+              </span>
+              <span className="text-[0.58rem] font-sans uppercase text-[#8a7b6e] tracking-[0.22em] flex items-center gap-4">
+                No logos. No noise. <span className="w-1.5 h-1.5 rounded-full bg-[#c4b9aa] inline-block" />
+              </span>
+              <span className="text-[0.58rem] font-sans uppercase text-[#8a7b6e] tracking-[0.22em] flex items-center gap-4">
+                80% Cotton &middot; 20% Lin &middot; 300GSM <span className="w-1.5 h-1.5 rounded-full bg-[#c4b9aa] inline-block" />
+              </span>
+              <span className="text-[0.58rem] font-sans uppercase text-[#8a7b6e] tracking-[0.22em] flex items-center gap-4">
+                Confidence doesn't speak <span className="w-1.5 h-1.5 rounded-full bg-[#c4b9aa] inline-block" />
+              </span>
+              <span className="text-[0.58rem] font-sans uppercase text-[#8a7b6e] tracking-[0.22em] flex items-center gap-4">
+                Livraison gratuite +$200 CAD <span className="w-1.5 h-1.5 rounded-full bg-[#c4b9aa] inline-block" />
+              </span>
+              <span className="text-[0.58rem] font-sans uppercase text-[#8a7b6e] tracking-[0.22em] flex items-center gap-4">
+                Understated. Undeniable. <span className="w-1.5 h-1.5 rounded-full bg-[#c4b9aa] inline-block" />
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ============ ⑤ GRILLE PRODUIT VEDETTE ============ */}
+      <section id="collection" className="max-w-7xl mx-auto px-6 sm:px-12 py-16 sm:py-24">
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 sm:mb-16 gap-6">
+          <div>
+            <span className="text-[0.58rem] font-sans tracking-[0.25em] text-[#8a7b6e] uppercase block mb-3">
+              Garde-robe Sélectionnée
+            </span>
+            <h2 className="font-serif text-3xl sm:text-5xl font-light text-[#0d0d0b] leading-tight">
+              The <span className="font-serif italic font-normal text-[#8a7b6e]">Essential</span> Wardrobe.
+            </h2>
+          </div>
+          <div>
+            <span className="text-[0.62rem] font-sans font-light text-[#2b2b27] uppercase tracking-[0.2em] border-b border-[#c4b9aa] pb-1 cursor-pointer hover:border-[#0d0d0b] transition-all">
+              4 silhouettes exclusives
+            </span>
+          </div>
+        </div>
+
+        {/* Product Cards Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+          {PRODUCTS.map((prod) => (
+            <div
+              key={prod.id}
+              onClick={() => handleProductCardClick(prod)}
+              className="group cursor-pointer flex flex-col focus:outline-none"
+            >
+              {/* Image Container with Custom Aspect */}
+              <div className="relative aspect-[3/4] w-full bg-[#e4ddd0] overflow-hidden mb-5">
+                <img
+                  src={prod.image}
+                  alt={prod.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform duration-[1200ms] ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-104 select-none"
+                />
+                
+                {/* Visual texture shadow overlays */}
+                <div className="absolute inset-0 bg-[#0d0d0b]/2 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                {/* Elegant Centered Hover Quick Action */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // prevent card click
+                      handleAddToBag(prod, "M");
+                    }}
+                    className="px-6 py-3 bg-[#0d0d0b] hover:bg-[#2b2b27] text-[#f4f1ea] text-[0.58rem] font-sans tracking-[0.22em] uppercase transition-all shadow-xl font-light active:scale-95"
+                  >
+                    Ajout Rapide &middot; Standard M
+                  </button>
+                </div>
+              </div>
+
+              {/* Meta row */}
+              <div className="flex justify-between items-start mt-1">
+                <div>
+                  <h3 className="font-serif text-md font-medium text-[#0d0d0b] tracking-wide">
+                    {prod.name}
+                  </h3>
+                  <p className="text-[0.6rem] font-sans uppercase tracking-[0.15em] text-[#8a7b6e] mt-1 flex items-center gap-2">
+                    <span 
+                      className="w-2.5 h-2.5 rounded-full border border-[#c4b9aa]"
+                      style={{ backgroundColor: prod.variantColorCode }}
+                    />
+                    {prod.variantName} &mdash; {prod.fabricSpecs.composition.split("·")[0]}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-sans text-[#2b2b27] tracking-wider font-medium">
+                    ${prod.price.toFixed(0)} CAD
+                  </span>
+
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ============ ⑥ SECTION MANIFESTE ============ */}
+      <section id="philosophy" className="bg-[#0b0b0a] text-[#f4f1ea] py-16 sm:py-28 relative overflow-hidden">
+      <div className="max-w-7xl mx-auto px-6 sm:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          {/* Left Block */}
+          <div className="border-r border-[#f4f1ea]/10 pr-0 lg:pr-12 md:py-6">
+            <span className="text-[0.55rem] font-sans tracking-[0.3em] text-[#8a7b6e] uppercase block mb-6">
+              La Philosophie Basta Label
+            </span>
+            <blockquote className="font-serif text-3xl sm:text-5xl lg:text-6xl font-light leading-[1.08] tracking-tight text-[#f4f1ea]">
+              "Silence is the<br />
+              highest form of<br />
+              <span className="font-serif italic text-[#8a7b6e]">presence & power.</span>"
+            </blockquote>
+          </div>
+
+          {/* Right Block */}
+          <div className="space-y-8 lg:pl-4">
+            <p className="text-[0.72rem] sm:text-xs font-sans font-light tracking-[0.08em] text-[#c4b9aa] leading-[2.1] max-w-lg">
+              Nous façonnons des lignes sobres et épurées pour l'homme qui a cessé de quémander l'approbation du regard d'autrui. Pas de logos bruyants. Pas de graphismes éphémères. Pas de tapage médiatique.<br /><br />
+              Juste des coupes au tombé d'une justesse irréprochable. Des matières lourdes qui maintiennent leur posture organique lavage après lavage. Des essentiels intemporels pensés pour résister au cycle incessant de la mode saisonnière.
+            </p>
+
+            <div className="pt-2 flex items-center gap-6">
+              <button
+                onClick={() => handleScrollToSection("fabric")}
+                className="px-6 py-3 border border-[#f4f1ea]/20 text-[#f4f1ea] text-[0.58rem] font-sans font-light tracking-[0.2em] uppercase hover:bg-[#e4ddd0]/5 hover:border-[#f4f1ea] transition-all"
+              >
+                Nos principes de sourcing
+              </button>
+              <span className="text-serif italic text-6xl opacity-[0.04] select-none font-light absolute right-12 bottom-6 pointer-events-none text-right">
+                01
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ ⑦ MAIN MATIÈRE (FABRIC) ============ */}
+      <section id="fabric" className="bg-[#e4ddd0] py-16 sm:py-24">
+      <div className="max-w-7xl mx-auto px-6 sm:px-12 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          {/* Text block */}
+          <div className="lg:col-span-5 space-y-6">
+            <span className="text-[0.55rem] font-sans tracking-[0.22em] text-[#2b2b27] uppercase block mb-1">
+              Origine de Tissage
+            </span>
+            <h3 className="font-serif text-3xl sm:text-4xl font-light text-[#0d0d0b] leading-tight">
+              Un textile qui méritait d'exister. <br />
+              <span className="font-serif italic text-[#8a7b6e] font-normal">Structure & Souffle.</span>
+            </h3>
+
+            <p className="text-[0.72rem] sm:text-xs font-sans font-light text-[#2b2b27] leading-[2.1] tracking-wide">
+              La Capsule 01 utilise une combinaison brevetée de coton de qualité supérieure et de lin organique. Le lin apporte sa texture vivante et un tombé asymétrique fluide reconnaissable à l'œil, tandis que le coton retient la douceur essentielle sur la peau et une imperméabilité aux déformations.
+            </p>
+
+            {/* Micro-specs grid */}
+            <div className="grid grid-cols-2 gap-4 pt-6 border-t border-[#c4b9aa]/60">
+              <div>
+                <span className="block text-[0.52rem] font-sans uppercase tracking-widest text-[#8a7b6e] mb-0.5">
+                  Composition
+                </span>
+                <span className="text-xs font-serif italic text-[#0d0d0b]">80% Cotton · 20% Organic Lin</span>
+              </div>
+              <div>
+                <span className="block text-[0.52rem] font-sans uppercase tracking-widest text-[#8a7b6e] mb-0.5">
+                  Densité de Fibre
+                </span>
+                <span className="text-xs font-sans font-medium text-[#0d0d0b]">300 GSM Heavyweight</span>
+              </div>
+              <div>
+                <span className="block text-[0.52rem] font-sans uppercase tracking-widest text-[#8a7b6e] mb-0.5">
+                  Drap / Tombé
+                </span>
+                <span className="text-xs font-serif italic text-[#0d0d0b]">Rigide Structuré Flou</span>
+              </div>
+              <div>
+                <span className="block text-[0.52rem] font-sans uppercase tracking-widest text-[#8a7b6e] mb-0.5">
+                  Certifications
+                </span>
+                <span className="text-xs font-sans font-medium text-[#0d0d0b]">GOTS Bio certifié</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Luxury fabric image gallery blocks */}
+          <div className="lg:col-span-7 grid grid-cols-12 gap-4 relative">
+            <div className="col-span-8 aspect-[4/5] bg-[#c4b9aa]/40 overflow-hidden shadow-sm relative">
+              <img
+                src="/images/basta_fabric_detail_1779996918283.png"
+                alt="Basta luxury macro cotton linen textile weaver"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover select-none"
+              />
+              <div className="absolute bottom-4 left-4 bg-[#ede8de] px-3.5 py-1 text-[0.52rem] font-sans tracking-widest uppercase font-mono text-[#0d0d0b]">
+                Macro Tissage 300GSM
+              </div>
+            </div>
+            
+            <div className="col-span-4 aspect-[3/4] self-end bg-[#2b2b27] overflow-hidden shadow-md hidden sm:block relative">
+              {/* Secondary fabric angle / contrast */}
+              <div className="absolute inset-0 bg-[#0d0d0b]/40 mix-blend-overlay z-10" />
+              <img
+                src="/images/basta_navy_trouser_1779996846955.png"
+                alt="Fabric structure styling"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover filter brightness-[0.7] contrast-[1.1] select-none"
+              />
+              <div className="absolute top-4 left-4 bg-[#0d0d0b] px-3 py-1 text-[0.45rem] tracking-[0.2em] uppercase font-sans text-[#f4f1ea]">
+                Fibre Teinte
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ ⑦.⑤ LOOKBOOK CINÉMATIQUE (REFERENCE DESIGN) ============ */}
+      <span id="lookbook" />
+      <section className="lookbook-cinematic relative h-[65vh] min-h-[480px] w-full flex flex-col items-center justify-center overflow-hidden border-y border-[#c4b9aa]/20">
+        
+        {/* Grayscale low opacity overlay of the model to replicate high-fashion film poster spacing */}
+        <div 
+          className="absolute inset-0 opacity-[0.22] pointer-events-none mix-blend-color-dodge transition-transform duration-[6000ms] hover:scale-103 bg-cover bg-center" 
+          style={{ 
+            backgroundImage: `url('/images/basta_hero_banner_1779996826682.png')`,
+          }} 
+        />
+        
+        {/* Content Overlay */}
+        <div className="relative z-10 max-w-4xl mx-auto px-6 text-center flex flex-col items-center justify-center space-y-8">
+          <h2 className="font-sans font-light text-white text-3xl sm:text-5xl lg:text-6xl leading-[1.2] tracking-tight max-w-3xl drop-shadow-sm">
+            Silence<br />is the highest form<br /><span className="font-serif italic font-light text-[#f4f1ea]/60 tracking-wide">of presence.</span>
+          </h2>
+          
+          <button
+            onClick={() => {
+              setLookbookIndex(0);
+              setLookbookOpen(true);
+            }}
+            className="px-10 py-3.5 border border-white/30 text-white text-[0.62rem] font-sans font-light tracking-[0.32em] uppercase hover:bg-white/8 hover:border-white/60 active:scale-97 transition-all duration-300 cursor-pointer"
+          >
+            LOOKBOOK
+          </button>
+        </div>
+      </section>
+
+      {/* Fullscreen Interactive Lookbook Modal */}
+      <AnimatePresence>
+        {lookbookOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[2000] bg-[#0d0d0b]/98 backdrop-blur-xl flex flex-col justify-between p-6 sm:p-12 overflow-y-auto selection:bg-[#73655a]/30"
+          >
+            {/* Modal Header */}
+            <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
+              {/* Brand logo replicated exactly */}
+              <div className="flex flex-col items-start">
+                <span className="logo-basta text-[1.1rem] text-white">BASTA</span>
+                <span className="logo-label text-[#8a7b6e] mt-0.5 block">LABEL</span>
+              </div>
+              
+              <div className="text-[0.55rem] font-sans uppercase tracking-[0.25em] text-white/40 hidden sm:block">
+                Capsule 01 &middot; Exposition d'art et matière
+              </div>
+              
+              {/* Close Button Button */}
+              <button
+                onClick={() => setLookbookOpen(false)}
+                className="group p-2 flex items-center gap-2 border border-white/10 hover:border-white/30 rounded-full text-[0.55rem] font-sans tracking-widest text-[#f4f1ea] uppercase transition-all"
+              >
+                <span className="pl-1 text-white/60 group-hover:text-white transition-colors">Fermer</span>
+                <X className="w-4 h-4 bg-white/10 text-white p-0.5 rounded-full" />
+              </button>
+            </div>
+
+            {/* Slider Content */}
+            <div className="my-auto max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center py-6">
+              {/* Left text column */}
+              <div className="lg:col-span-4 space-y-6 text-left order-2 lg:order-1">
+                <span className="text-[0.52rem] font-sans tracking-[0.3em] text-[#8a7b6e] uppercase block">
+                  Couture d'avant-garde &middot; Plan {lookbookIndex + 1}
+                </span>
+                
+                <h3 className="font-serif text-3xl sm:text-4xl font-light text-[#f4f1ea] leading-tight">
+                  {[
+                    "Structure & Profondeur",
+                    "Garnet Bordeaux Knit",
+                    "Drapé Royal Navy",
+                    "Souffle de Pur Coton"
+                  ][lookbookIndex]}
+                </h3>
+                
+                <p className="text-[0.68rem] font-sans font-light text-[#c4b9aa]/80 leading-relaxed max-w-sm">
+                  {[
+                    "The Bordeaux Trouser — une silhouette à pli unique en coton-lin 300GSM. Un bordeaux profond et désaturé qui vieillit magnifiquement, conçu pour celui qui n'a rien à prouver.",
+                    "La chaleur feutrée du Henley bordeaux. Une maille double Supima interlock respirante qui épouse magnifiquement la structure corporelle grâce à une coupe cintrée moderne aux manches délicates.",
+                    "Le bleu de minuit absolu. Un pantalon épuré sans logos orné d'un pli central de haute prestance. Une fente structurée qui ne s'effondre jamais, sublimée par des détails internes de biais d'atelier.",
+                    "La clarté brute du ton crème. Notre Henley d'une densité suprême de 260GSM arborant une patte à triptyque de boutons organiques en corne, ornée du discret marquage d'authenticité BASTA LABEL cousu au cou."
+                  ][lookbookIndex]}
+                </p>
+
+                {/* Technical specs detail list */}
+                <div className="border-t border-white/10 pt-4 space-y-1.5 text-[0.6rem] font-sans uppercase tracking-widest text-[#8a7b6e]">
+                  <div>Fibres: <span className="text-white font-serif italic normal-case lowercase ml-1">
+                    {[
+                      "80% Coton Supima · 20% Lin bio d'Europe",
+                      "100% Organique California Supima",
+                      "80% Coton Supima · 20% Lin bio d'Europe",
+                      "100% Organique California Supima"
+                    ][lookbookIndex]}
+                  </span></div>
+                  <div>Poids: <span className="text-white ml-1">
+                    {[
+                      "300 GSM (Heavyweight)",
+                      "260 GSM (Midweight knit)",
+                      "300 GSM (Heavyweight)",
+                      "260 GSM (Midweight knit)"
+                    ][lookbookIndex]}
+                  </span></div>
+                </div>
+
+                {/* Navigation indicators */}
+                <div className="flex items-center gap-6 pt-4">
+                  <div className="flex gap-1">
+                    {[0, 1, 2, 3].map((idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setLookbookIndex(idx)}
+                        className={`h-1 transition-all duration-300 ${
+                          lookbookIndex === idx ? "w-6 bg-white" : "w-2 bg-white/20 hover:bg-white/40"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs font-mono text-white/50">
+                    0{lookbookIndex + 1} / 04
+                  </span>
+                </div>
+              </div>
+
+              {/* Center Image Column */}
+              <div className="lg:col-span-8 order-1 lg:order-2 flex flex-col items-center justify-center relative">
+                {/* Image showcase */}
+                <div className="aspect-[4/3] sm:aspect-[16/10] w-full max-h-[55vh] bg-black/40 overflow-hidden relative border border-white/5 shadow-2xl flex items-center justify-center">
+                  {/* Backdrop glowing logo reflection */}
+                  <div className="absolute inset-x-2 bottom-2 top-10 bg-[#73655a]/10 blur-3xl rounded-full" />
+                  
+                  <img
+                    src={[
+                      "/images/basta_bordeaux_trouser_1779996873619.png",
+                      "/images/basta_bordeaux_henley_1779997542427.png",
+                      "/images/basta_navy_trouser_1779996846955.png",
+                      "/images/basta_cream_henley_1779996901259.png"
+                    ][lookbookIndex]}
+                    alt="Lookbook slide viewpoint"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover select-none object-center transition-all duration-700 brightness-[0.93] contrast-[1.03]"
+                  />
+                  
+                  {/* Analog photo film stamp indicator */}
+                  <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 text-[0.45rem] font-mono tracking-widest text-[#c4b9aa]/80 rounded-xs">
+                    FINE GRAIN EMULSION &middot; KODAK PORTRA 400
+                  </div>
+                  
+                  {/* Left arrow */}
+                  <button
+                    onClick={() => setLookbookIndex((prev) => (prev === 0 ? 3 : prev - 1))}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/40 hover:bg-black/70 backdrop-blur-md text-white flex items-center justify-center rounded-full transition-all border border-white/5 focus:outline-none"
+                  >
+                    &larr;
+                  </button>
+
+                  {/* Right arrow */}
+                  <button
+                    onClick={() => setLookbookIndex((prev) => (prev === 3 ? 0 : prev + 1))}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/40 hover:bg-black/70 backdrop-blur-md text-white flex items-center justify-center rounded-full transition-all border border-white/5 focus:outline-none"
+                  >
+                    &rarr;
+                  </button>
+                </div>
+                
+                <p className="text-[0.48rem] font-sans uppercase tracking-[0.3em] text-[#c4b9aa]/30 mt-3 text-center sm:hidden">
+                  Swipez ou pressez les flèches pour naviguer
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="w-full max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center pt-8 border-t border-white/5 gap-4">
+              <p className="text-[0.55rem] font-sans tracking-widest uppercase text-[#c4b9aa]/40 text-center sm:text-left">
+                Droits d'auteur &copy; 2026 Basta Label Inc. Tous droits réservés.
+              </p>
+              
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    const matchedProdId = ["bast-01-bordeaux-trouser", "bast-01-bordeaux-henley", "bast-01-navy-trouser", "bast-01-cream-henley"][lookbookIndex];
+                    const matchedProd = PRODUCTS.find((p) => p.id === matchedProdId);
+                    if (matchedProd) {
+                      setSelectedProduct(matchedProd);
+                      setLookbookOpen(false);
+                      handleScrollToSection("product-detail-area");
+                    }
+                  }}
+                  className="px-6 py-2 bg-white text-black hover:bg-[#73655a] hover:text-white rounded-full text-[0.55rem] font-sans uppercase tracking-widest font-medium transition-all"
+                >
+                  Inspecter cette pièce &rarr;
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ============ ⑧ PAGE PRODUIT INTÉGRÉE (INTERACTIVE PRODUCT GRID DETAIL) ============ */}
+      <section 
+        ref={detailSectionRef}
+        id="product-detail-area" 
+        className="max-w-7xl mx-auto px-6 sm:px-12 py-16 sm:py-24 border-t border-[#c4b9aa]/30 scroll-mt-24"
+      >
+      {/* Outer Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 xl:gap-16 items-start">
+          {/* Column 1: Image Showcase */}
+          <div className="lg:col-span-7 space-y-4">
+            <span className="text-[0.55rem] font-sans tracking-[0.2em] text-[#8a7b6e] uppercase block">
+              Explorateur Visual-Hub (Angle {activePhotoIndex + 1}/2)
+            </span>
+            
+            {/* Main Picture box with custom loader preview */}
+            <div className="aspect-[3/4] w-full bg-[#e4ddd0] overflow-hidden rounded-xs relative group/detail">
+              <img
+                src={selectedProduct.secondaryImages[activePhotoIndex]}
+                alt={`${selectedProduct.name} main view`}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover transition-all duration-700 select-none"
+              />
+              <div className="absolute top-4 right-4 bg-[#0d0d0b]/30 backdrop-blur-md px-2.5 py-1 text-[0.55rem] font-mono text-[#f4f1ea] rounded-full uppercase tracking-widest flex items-center gap-1">
+                <span>Zoom actif</span>
+              </div>
+            </div>
+
+            {/* Thumbnails Row */}
+            <div className="grid grid-cols-2 gap-4">
+              {selectedProduct.secondaryImages.map((src, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActivePhotoIndex(idx)}
+                  className={`aspect-[4/3] bg-[#e4ddd0] overflow-hidden border transition-all ${
+                    activePhotoIndex === idx
+                      ? "border-[#0d0d0b] scale-[0.98] opacity-100 shadow-sm"
+                      : "border-[#c4b9aa]/40 opacity-70 hover:opacity-100"
+                  }`}
+                >
+                  <img src={src} alt="Sub view" referrerPolicy="no-referrer" className="w-full h-full object-cover object-top select-none" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Column 2: Checkout / Customization Console */}
+          <div className="lg:col-span-5 space-y-6 sm:space-y-8">
+            <div>
+              <span className="text-[0.6rem] font-sans font-medium tracking-[0.25em] text-[#8a7b6e] uppercase block mb-2">
+                Basta Label &middot; Drop 01 Essentials
+              </span>
+              <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-light text-[#0d0d0b] tracking-wide leading-tight">
+                {selectedProduct.name} &mdash; <span className="font-serif italic font-normal text-[#8a7b6e]">{selectedProduct.variantName}</span>
+              </h2>
+              
+              {/* Product Price Tag */}
+              <div className="flex items-center gap-4 mt-4">
+                <span className="text-xl font-sans text-[#0d0d0b] font-medium tracking-wide">
+                  ${selectedProduct.price.toFixed(2)} CAD
+                </span>
+
+                <span className="px-2.5 py-0.5 border border-[#7d6e62]/20 bg-[#7d6e62]/5 text-[#8a7b6e] rounded-xs text-[0.55rem] font-sans font-medium tracking-widest uppercase">
+                  Finitudes Limite
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[0.72rem] sm:text-xs font-sans font-light text-[#2b2b27] leading-relaxed">
+              {selectedProduct.description}
+            </p>
+
+            {/* Selection Color Swappable */}
+            <div>
+              <span className="text-[0.55rem] font-medium tracking-[0.18em] text-[#8a7b6e] uppercase block mb-2.5">
+                Couleur / Color Capsule
+              </span>
+              <div className="flex gap-3">
+                {PRODUCTS.map((prod) => (
+                  <button
+                    key={prod.id}
+                    onClick={() => setSelectedProduct(prod)}
+                    className={`px-3 py-2 border flex items-center gap-2 text-[0.62rem] font-sans uppercase tracking-widest transition-all ${
+                      selectedProduct.id === prod.id
+                        ? "border-[#0d0d0b] bg-[#e4ddd0]"
+                        : "border-[#c4b9aa]/40 hover:border-[#0d0d0b]"
+                    }`}
+                  >
+                    <span 
+                      className="w-3 h-3 rounded-full border border-[#c4b9aa]"
+                      style={{ backgroundColor: prod.variantColorCode }}
+                    />
+                    <span>{prod.variantName}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Size selector block */}
+            <div>
+              <div className="flex justify-between items-center mb-2.5">
+                <span className="text-[0.55rem] font-medium tracking-[0.18em] text-[#8a7b6e] uppercase">
+                  Taille / Select Size
+                </span>
+                
+                {/* Size guide trigger is real */}
+                <button
+                  onClick={() => setSizeGuideOpen(true)}
+                  className="text-[0.55rem] font-sans font-light tracking-[0.15em] text-[#2b2b27] uppercase underline hover:opacity-75 flex items-center gap-1.5"
+                >
+                  <Ruler className="w-3.5 h-3.5 text-[#8a7b6e]" />
+                  <span>Guide des Tailles</span>
+                </button>
+              </div>
+
+              {/* Sizes row */}
+              <div className="flex flex-wrap gap-2">
+                {selectedProduct.sizes.map((sz) => (
+                  <button
+                    key={sz}
+                    onClick={() => setSelectedSize(sz)}
+                    className={`w-11 h-11 text-xs border tracking-wider font-sans transition-all flex items-center justify-center ${
+                      selectedSize === sz
+                        ? "bg-[#0d0d0b] text-[#f4f1ea] border-[#0d0d0b] font-medium"
+                        : "border-[#c4b9aa] text-[#2b2b27] hover:border-[#0d0d0b] hover:text-[#0d0d0b]"
+                    }`}
+                  >
+                    {sz}
+                    {sz === "M" && (
+                      <span className="absolute text-[0.38rem] translate-y-3.5 text-[#8a7b6e] font-mono leading-none">Std</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Checkout CTAs with sliding Drawer binding */}
+            <div className="space-y-3 pt-2">
+              <button
+                onClick={() => handleAddToBag(selectedProduct, selectedSize)}
+                className="w-full py-4.5 bg-[#0d0d0b] hover:bg-[#2b2b27] text-[#f4f1ea] text-[0.68rem] font-sans font-light tracking-[0.25em] uppercase transition-all shadow-md active:scale-99 flex items-center justify-center gap-2.5"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>Ajouter au Panier &middot; Taille {selectedSize}</span>
+              </button>
+
+              <button
+                onClick={() => setSizeGuideOpen(true)}
+                className="w-full py-4 border border-[#c4b9aa] text-[#2b2b27] hover:border-[#0d0d0b] hover:text-[#0d0d0b] text-[0.62rem] font-sans font-light tracking-[0.22em] uppercase transition-all"
+              >
+                Consulter les mesures détaillées (Fit Check)
+              </button>
+            </div>
+
+            {/* Custom Interactive Accordions */}
+            <div className="border-t border-[#c4b9aa]/60 pt-4 space-y-2">
+              {/* Composition & Care */}
+              <div className="border-b border-[#c4b9aa]/20 pb-2">
+                <button
+                  onClick={() => setActiveAccordion(activeAccordion === "comp" ? null : "comp")}
+                  className="w-full flex justify-between items-center py-2 text-xs font-sans font-medium text-[#0d0d0b] tracking-wider uppercase"
+                >
+                  <span>Composition & Entretien / Care</span>
+                  <span className={`text-[0.9rem] font-light transition-transform duration-300 ${activeAccordion === "comp" ? "rotate-90 text-[#8a7b6e]" : "text-[#8a7b6e]"}`}>
+                    &middot;
+                  </span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {activeAccordion === "comp" && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden text-[0.72rem] text-[#8a7b6e] leading-[1.8] font-sans space-y-1.5 py-1"
+                    >
+                      <p><strong>Composition:</strong> {selectedProduct.fabricSpecs.composition}</p>
+                      <p><strong>Entretien:</strong> {selectedProduct.fabricSpecs.care}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Fit Description */}
+              <div className="border-b border-[#c4b9aa]/20 pb-2">
+                <button
+                  onClick={() => setActiveAccordion(activeAccordion === "fit" ? null : "fit")}
+                  className="w-full flex justify-between items-center py-2 text-xs font-sans font-medium text-[#0d0d0b] tracking-wider uppercase"
+                >
+                  <span>Coupe & Spécifications / Fit</span>
+                  <span className={`text-[0.9rem] font-light transition-transform duration-300 ${activeAccordion === "fit" ? "rotate-90 text-[#8a7b6e]" : "text-[#8a7b6e]"}`}>
+                    &middot;
+                  </span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {activeAccordion === "fit" && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden text-[0.72rem] text-[#8a7b6e] leading-[1.8] font-sans space-y-2 py-1"
+                    >
+                      <ul className="list-disc pl-4 space-y-1">
+                        {selectedProduct.details.map((detail, dIdx) => (
+                          <li key={dIdx}>{detail}</li>
+                        ))}
+                      </ul>
+                      <p className="pt-2 text-[0.68rem] italic text-[#2b2b27]">Coupe: {selectedProduct.fabricSpecs.fit}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Delivery info */}
+              <div className="border-b border-[#c4b9aa]/20 pb-2">
+                <button
+                  onClick={() => setActiveAccordion(activeAccordion === "ship" ? null : "ship")}
+                  className="w-full flex justify-between items-center py-2 text-xs font-sans font-medium text-[#0d0d0b] tracking-wider uppercase"
+                >
+                  <span>Livraison & Retours / Eco Shipping</span>
+                  <span className={`text-[0.9rem] font-light transition-transform duration-300 ${activeAccordion === "ship" ? "rotate-90 text-[#8a7b6e]" : "text-[#8a7b6e]"}`}>
+                    &middot;
+                  </span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {activeAccordion === "ship" && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden text-[0.72rem] text-[#8a7b6e] leading-[1.8] font-sans py-1"
+                    >
+                      <p>Expédié sous boîte étanche cartonnée brute sans agent de blanchiment et sous papier d'emballage organique neutre en carbone. Les retours sont offerts gracieusement sous un délai de 14 jours si les sceaux de fermeture n'ont pas été dégradés.</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ ⑨ VALUES STRIP (BANDE DE VALEURS) ============ */}
+      <section className="bg-[#2b2b27] border-y border-[#c4b9aa]/10 text-[#f4f1ea]">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#ccc9c1]/10">
+          {BRAND_VALUES.map((val) => (
+            <div key={val.num} className="p-8 sm:p-12 space-y-4">
+              <span className="font-serif text-3xl font-light text-[#8a7b6e]/30 select-none block leading-none">
+                {val.num}
+              </span>
+              <h4 className="font-serif italic text-base lg:text-lg text-[#f4f1ea] leading-tight">
+                {val.title}
+              </h4>
+              <p className="text-[0.68rem] font-sans font-light text-[#c4b9aa]/60 leading-[1.85] tracking-wide">
+                {val.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ============ ⑩ SOCIAL PROOF UGC ============ */}
+      <section className="max-w-7xl mx-auto px-6 sm:px-12 py-16 sm:py-24">
+      <div className="flex justify-between items-end mb-12">
+          <div>
+            <span className="text-[0.55rem] font-sans tracking-[0.25em] text-[#8a7b6e] uppercase block mb-3">
+              Cercle Basta Label
+            </span>
+            <h2 className="font-serif text-3xl sm:text-5xl font-light text-[#0d0d0b] leading-[1.12]">
+              The <span className="font-serif italic font-normal text-[#8a7b6e]">quiet few.</span>
+            </h2>
+          </div>
+          <div>
+            <a 
+              href="#instagram-link" 
+              className="text-[0.62rem] font-sans uppercase tracking-[0.2em] font-medium text-[#0d0d0b] border-b border-[#0d0d0b] pb-0.5 hover:border-[#888580] hover:text-[#8a7b6e] transition-colors"
+            >
+              @bastalabel
+            </a>
+          </div>
+        </div>
+
+        {/* Instawall Grid with Fallback placeholders styled with luxurious gradients */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {SOCIALS.map((soc) => (
+            <div
+              key={soc.id}
+              className="group relative aspect-square bg-[#e4ddd0] overflow-hidden rounded-xs cursor-pointer"
+            >
+              {/* Luxurious abstract textured gradient as layout backdrop for social UGC */}
+              <div className="absolute inset-0 bg-gradient-to-br from-[#ccc9c1] via-[#e4dfd3] to-[#888580] ring-1 ring-[#0d0d0b]/5" />
+              
+              {/* Overlaid abstract fashion lighting details */}
+              <div className="absolute inset-x-2 bottom-2 top-10 bg-[#0d0d0b]/10 blur-xl rounded-full" />
+              
+              {/* Fine subtle overlay text framing human identity */}
+              <div className="absolute inset-0 z-10 flex flex-col justify-between p-4 bg-black/0 group-hover:bg-[#0b0b0a]/65 transition-all duration-300">
+                <div className="self-end text-[0.45rem] font-mono uppercase tracking-[0.2em] text-[#f4f1ea]/0 group-hover:text-[#f4f1ea]/40 transition-colors">
+                  Verified Fit
+                </div>
+                <div>
+                  <h4 className="text-[0.72rem] font-serif font-light text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 leading-snug">
+                    {soc.username}
+                  </h4>
+                  <p className="text-[0.58rem] font-sans uppercase tracking-widest text-[#c4b89e] opacity-0 group-hover:opacity-100 transition-opacity duration-300 mt-1">
+                    {soc.handle}
+                  </p>
+                  <p className="text-[0.52rem] font-sans text-white/70 block opacity-0 group-hover:opacity-100 transition-opacity duration-300 mt-1 leading-relaxed">
+                    "{soc.caption}"
+                  </p>
+                </div>
+              </div>
+
+              {/* Little icon marker on bottom right */}
+              <div className="absolute top-4 right-4 w-1.5 h-1.5 rounded-full bg-white/20 select-none group-hover:bg-[#c4b89e] group-hover:scale-125 transition-all" />
+              
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="font-serif italic text-3xl opacity-[0.06] text-[#0d0d0b] tracking-widest select-none">Basta.</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ============ ⑪ NEWSLETTER COMTEMPLATEUR ============ */}
+      <section className="bg-[#0b0b0a] text-[#f4f1ea] py-20 sm:py-32 border-t border-[#c4b9aa]/10 text-center relative overflow-hidden">
+      <div className="max-w-2xl mx-auto px-6 relative z-10">
+          <span className="text-[0.52rem] font-sans tracking-[0.35em] text-[#8a7b6e] uppercase block mb-4">
+            Registre de Priorité &middot; Newsletter
+          </span>
+          <h2 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-light text-[#f4f1ea] tracking-tight leading-none mb-3">
+            Rejoins <span className="font-serif italic font-normal text-[#8a7b6e]">les rares.</span>
+          </h2>
+          <p className="text-[0.68rem] sm:text-xs font-sans font-light tracking-[0.1em] text-[#c4b9aa]/75 leading-relaxed max-w-md mx-auto mb-10 sm:mb-12">
+            Soyez notifié en priorité du drop de la Capsule 02 en automne. Aucun bruit promotionnel. Désistement possible en un clic depuis le pied de boîte.
+          </p>
+
+          <AnimatePresence mode="wait">
+            {!newsletterSubscribed ? (
+              <motion.form 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                onSubmit={handleNewsletterSubmit}
+                className="max-w-md mx-auto flex items-center border-b border-[#f4f1ea]/25 pb-2.5 focus-within:border-white transition-colors"
+              >
+                <input
+                  type="email"
+                  required
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  placeholder="Inscrivez votre adresse e-mail"
+                  className="bg-transparent border-none text-xs sm:text-sm font-sans tracking-wide text-white focus:outline-none placeholder-white/20 w-full"
+                />
+                <button
+                  type="submit"
+                  className="p-1 px-4 text-[0.55rem] sm:text-[0.6rem] font-sans uppercase tracking-[0.25em] text-[#f4f1ea] hover:text-[#f4f1ea] transition-colors shrink-0"
+                >
+                  S'enregistrer &rarr;
+                </button>
+              </motion.form>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="max-w-md mx-auto p-5 border border-emerald-500/20 bg-emerald-500/5 text-emerald-300 rounded-sm inline-flex items-center gap-3 text-left"
+              >
+                <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                <div>
+                  <h4 className="text-[0.72rem] font-bold uppercase tracking-wider text-white">Inclusion validée.</h4>
+                  <p className="text-[0.62rem] text-emerald-400/80 leading-relaxed mt-0.5">
+                    Votre adresse figure désormais au registre Basta Label. Vous recevrez l'invitation cryptée à la Capsule 02 en exclusivité.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </section>
+
+      {/* ============ ⑫ SECTION FAQ ============ */}
+      <section id="faq" className="max-w-7xl mx-auto px-6 sm:px-12 py-16 sm:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12 sm:gap-16">
+      {/* Left Col */}
+        <div className="lg:col-span-4">
+          <span className="text-[0.55rem] font-sans tracking-[0.22em] text-[#8a7b6e] uppercase block mb-3">
+            Soutien à la décision
+          </span>
+          <h3 className="font-serif text-3xl sm:text-4xl font-light text-[#0d0d0b] leading-tight">
+            Questions<br />
+            <span className="font-serif italic font-normal text-[#8a7b6e]">fréquentes.</span>
+          </h3>
+          <p className="text-[0.72rem] text-[#8a7b6e] mt-4 leading-relaxed max-w-xs font-light">
+            Une hésitation relative à la matière de coton-lin ou au drapé du pantalon ? Nos équipes de couturiers sont rattachées en continu via <span className="font-medium underline hover:text-[#0d0d0b] cursor-pointer">hello@bastalabel.com</span>
+          </p>
+        </div>
+
+        {/* Right Col: Interactive expanding lists */}
+        <div className="lg:col-span-8 divide-y divide-[#ccc9c1]/35">
+          {FAQS.map((faq) => {
+            const isOpen = openFaqId === faq.id;
+            return (
+              <div key={faq.id} className="py-5 first:pt-0 last:pb-0">
+                <button
+                  onClick={() => setOpenFaqId(isOpen ? null : faq.id)}
+                  className="w-full text-left flex justify-between items-center gap-4 group/faq"
+                >
+                  <span className="text-xs sm:text-sm font-sans font-medium text-[#2b2b27] group-hover/faq:text-[#0d0d0b] tracking-wide transition-colors">
+                    {faq.question}
+                  </span>
+                  <span className={`text-[1.2rem] font-light transition-transform duration-300 flex-shrink-0 ${isOpen ? "rotate-45 text-[#8a7b6e]" : "text-[#8a7b6e]"}`}>
+                    +
+                  </span>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <p className="text-[0.72rem] sm:text-[0.75rem] text-[#8a7b6e] leading-[1.9] tracking-wide pt-4 pb-1 select-text">
+                        {faq.answer}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ============ ⑬ FOOTER ============ */}
+      <footer className="bg-[#0b0b0a] text-[#f4f1ea] pt-16 sm:pt-24 pb-12 px-6 sm:px-12 border-t border-[#c4b9aa]/10">
+      <div className="max-w-7xl mx-auto space-y-16">
+          {/* Main Footer blocks */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-12 sm:gap-8 items-start">
+            <div className="lg:col-span-4 space-y-4">
+              <div className="flex flex-col items-start select-none">
+                <span className="logo-basta text-[1.6rem] text-white block">
+                  BASTA
+                </span>
+                <span className="logo-label text-[#8a7b6e] block -mt-0.5">
+                  LABEL
+                </span>
+              </div>
+              <p className="text-[0.62rem] text-[#c4b9aa]/50 leading-[1.95] tracking-[0.08em] uppercase max-w-sm">
+                Quiet confidence.<br />
+                Capsule 01 en tirage exclusif limitée.<br />
+                Capsule 02 &mdash; En phase de confection automne 2026.
+              </p>
+            </div>
+
+            <div className="lg:col-span-2.5 space-y-4">
+              <h4 className="text-[0.55rem] font-sans tracking-[0.25em] text-[#8a7b6e] uppercase">
+                Acheter / Shop
+              </h4>
+              <ul className="space-y-2.5 list-none text-[0.65rem] tracking-wider text-[#c4b9aa]/60 font-light uppercase">
+                <li>
+                  <button onClick={() => { setSelectedProduct(PRODUCTS[0]); handleScrollToSection("product-detail-area"); }} className="hover:text-white transition-colors">
+                    The Trouser &mdash; Navy
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => { setSelectedProduct(PRODUCTS[1]); handleScrollToSection("product-detail-area"); }} className="hover:text-white transition-colors">
+                    The Trouser &mdash; Bordeaux
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => { setSelectedProduct(PRODUCTS[2]); handleScrollToSection("product-detail-area"); }} className="hover:text-white transition-colors">
+                    The Henley &mdash; Off-white
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <div className="lg:col-span-2.5 space-y-4">
+              <h4 className="text-[0.55rem] font-sans tracking-[0.25em] text-[#8a7b6e] uppercase">
+                La Marque / Brand
+              </h4>
+              <ul className="space-y-2.5 list-none text-[0.65rem] tracking-wider text-[#c4b9aa]/60 font-light uppercase">
+                <li><a href="#about" className="hover:text-white transition-colors">À Propos</a></li>
+                <li><button onClick={() => handleScrollToSection("fabric")} className="hover:text-white transition-colors">Sourcing Éthique</button></li>
+                <li><button onClick={() => handleScrollToSection("philosophy")} className="hover:text-white transition-colors">Politique de Silence</button></li>
+                <li><a href="#contact" className="hover:text-white transition-colors">Couture Service</a></li>
+              </ul>
+            </div>
+
+            <div className="lg:col-span-3 space-y-4">
+              <h4 className="text-[0.55rem] font-sans tracking-[0.25em] text-[#8a7b6e] uppercase">
+                Aide & Support
+              </h4>
+              <ul className="space-y-2.5 list-none text-[0.65rem] tracking-wider text-[#c4b9aa]/60 font-light uppercase">
+                <li><button onClick={() => setSizeGuideOpen(true)} className="hover:text-white transition-colors">Guide des Tailles</button></li>
+                <li><button onClick={() => handleScrollToSection("faq")} className="hover:text-white transition-colors">Consignes de Livraison</button></li>
+                <li><button onClick={() => handleScrollToSection("faq")} className="hover:text-white transition-colors">Politique d'Échange</button></li>
+                <li><button onClick={() => handleScrollToSection("faq")} className="hover:text-white transition-colors">Entretien des Fibres</button></li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Understated terms block */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-6 pt-10 border-t border-[#c4b9aa]/10 text-[#c4b9aa]/30">
+            <span className="text-[0.55rem] font-sans tracking-[0.1em] uppercase">
+              &copy; 2026 Basta Label. Tous droits de design réservés. Conçu sur le canevas de quiet luxury.
+            </span>
+            <div className="flex gap-6">
+              <a href="#insta" className="text-[0.55rem] font-sans tracking-widest uppercase hover:text-white transition-colors">
+                Instagram
+              </a>
+              <a href="#tk" className="text-[0.55rem] font-sans tracking-widest uppercase hover:text-white transition-colors">
+                TikTok
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      {/* ============ MODERN SLIDING SHOPPING CART DRAWER ============ */}
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cartItems={cartItems}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+      />
+
+      {/* ============ SIZE GUIDE MODAL POPUP ============ */}
+      <SizeGuideModal
+        isOpen={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        productName={selectedProduct.name}
+      />
+
+      {/* ============ PERSISTENT SCREEN CONVERSION OPTIMIZED STICKY ADD TO CART ============ */}
+      <StickyAddToCart
+        product={selectedProduct}
+        selectedSize={selectedSize}
+        onSizeSelect={setSelectedSize}
+        onAddToBag={() => handleAddToBag(selectedProduct, selectedSize)}
+      />
+    </div>
+  );
+}

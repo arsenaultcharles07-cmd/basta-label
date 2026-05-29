@@ -1,0 +1,6 @@
+{
+  "name": "Basta Label",
+  "description": "A premium minimalist fashion brand focusing on elevated essentials, timeless fits, and quiet luxury. Experience cinematic visuals, high-quality fabric specs, size curation, and an immersive shopping experience.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
