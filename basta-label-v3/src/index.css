@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Jost", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bebas Neue", "Impact", sans-serif;
+
+  /* Brand palette — derived from logo taupe + quiet luxury */
+  --color-brand-ivory:       #ede8de;
+  --color-brand-ivory2:      #e4ddd0;
+  --color-brand-ivory3:      #d9cfbf;
+  --color-brand-black:       #0d0d0b;
+  --color-brand-charcoal:    #2b2b27;
+  --color-brand-grey:        #8a7b6e;
+  --color-brand-grey-light:  #c4b9aa;
+  --color-brand-taupe:       #8a7b6e;
+  --color-brand-taupe-bg:    #8a7b6e;
+}
+
+/* ---- GOOGLE FONTS ---- */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Jost:wght@200;300;400;500&family=Bebas+Neue&display=swap');
+
+/* ---- GRAIN OVERLAY (cinematic film grain) ---- */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.048'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9000;
+  opacity: 0.7;
+  mix-blend-mode: multiply;
+}
+
+/* ---- LOOKBOOK HERO CINEMATIC TEXTURE ---- */
+/* Replicates the warm golden backlight + film grain of the reference image */
+.lookbook-cinematic {
+  background: linear-gradient(
+    175deg,
+    #1a1410 0%,
+    #2d2218 25%,
+    #3d2e1c 45%,
+    #4a3820 55%,
+    #2e2015 75%,
+    #111008 100%
+  );
+}
+.lookbook-cinematic::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 60% 55% at 52% 62%,
+    rgba(210, 145, 40, 0.22) 0%,
+    rgba(180, 110, 20, 0.1) 35%,
+    transparent 65%
+  );
+  pointer-events: none;
+}
+.lookbook-cinematic::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 40% at 50% 100%,
+    rgba(13, 13, 11, 0.85) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+/* Animated infinite ticker scroll */
+@keyframes infinite-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-infinite-scroll {
+  animation: infinite-scroll 34s linear infinite;
+}
+.animate-infinite-scroll:hover {
+  animation-play-state: paused;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar       { width: 5px; }
+::-webkit-scrollbar-track  { background: rgba(255,255,255,0.5); }
+::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.3); }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+
+/* Hide default cursor on desktop */
+@media (min-width: 901px) {
+  .custom-cursor-enabled { cursor: none; }
+}
+
+/* Logo display font for BASTA */
+.logo-basta {
+  font-family: "Bebas Neue", "Impact", sans-serif;
+  letter-spacing: 0.18em;
+  line-height: 1;
+}
+.logo-label {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  letter-spacing: 0.42em;
+  font-weight: 300;
+  font-size: 0.48rem;
+  text-transform: uppercase;
+}
